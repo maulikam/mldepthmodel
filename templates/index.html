@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Depth Estimation</title>
+    <style>
+        #imageCanvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <h1>Depth Estimation</h1>
+    <input type="number" id="knownDistance" placeholder="Known Distance (meters)">
+    <button onclick="startCamera()">Start Camera</button>
+    <button onclick="captureImage()">Capture Image</button>
+    <video id="video" width="640" height="480" autoplay playsinline></video>
+    <canvas id="imageCanvas" width="640" height="480"></canvas>
+    <button onclick="uploadImage()">Upload and Process</button>
+    <div id="result"></div>
+
+    <script>
+        let video = document.getElementById('video');
+        let canvas = document.getElementById('imageCanvas');
+        let context = canvas.getContext('2d');
+        let imageCapture;
+        let refPoints = [];
+
+        async function startCamera() {
+            try {
+                let stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: { exact: 'environment' } } 
+                });
+                video.srcObject = stream;
+                video.style.display = 'block';
+
+                // Get the track and create ImageCapture object
+                const [track] = stream.getVideoTracks();
+                imageCapture = new ImageCapture(track);
+            } catch (error) {
+                console.error("Error accessing the camera", error);
+            }
+        }
+
+        async function captureImage() {
+            try {
+                const frame = await imageCapture.grabFrame();
+                context.drawImage(frame, 0, 0, canvas.width, canvas.height);
+                video.style.display = 'none';
+            } catch (error) {
+                console.error("Error capturing image", error);
+            }
+        }
+
+        canvas.addEventListener('click', function(event) {
+            if (refPoints.length < 2) {
+                let rect = canvas.getBoundingClientRect();
+                let x = event.clientX - rect.left;
+                let y = event.clientY - rect.top;
+                refPoints.push({ x, y });
+                context.fillStyle = 'red';
+                context.fillRect(x - 5, y - 5, 10, 10);
+            }
+        });
+
+        async function uploadImage() {
+            const knownDistance = document.getElementById('knownDistance').value;
+            if (knownDistance === '' || refPoints.length !== 2) {
+                alert('Please provide all inputs');
+                return;
+            }
+
+            canvas.toBlob(async function(blob) {
+                const formData = new FormData();
+                formData.append('file', blob, 'captured.png');
+                formData.append('known_distance_meters', knownDistance);
+                formData.append('ref_points', JSON.stringify(refPoints));
+
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                const resultBlob = await response.blob();
+                const url = URL.createObjectURL(resultBlob);
+
+                document.getElementById('result').innerHTML = `<img src="${url}" alt="Depth Map">`;
+            }, 'image/png');
+        }
+    </script>
+</body>
+</html>
