@@ -15,7 +15,7 @@
     <input type="number" id="knownDistance" placeholder="Known Distance (meters)">
     <button onclick="startCamera()">Start Camera</button>
     <button onclick="captureImage()">Capture Image</button>
-    <video id="video" width="640" height="480" autoplay playsinline></video>
+    <video id="video" width="640" height="480" autoplay playsinline style="display: none;"></video>
     <canvas id="imageCanvas" width="640" height="480"></canvas>
     <button onclick="uploadImage()">Upload and Process</button>
     <div id="result"></div>
@@ -24,7 +24,6 @@
         let video = document.getElementById('video');
         let canvas = document.getElementById('imageCanvas');
         let context = canvas.getContext('2d');
-        let imageCapture;
         let refPoints = [];
 
         async function startCamera() {
@@ -34,23 +33,14 @@
                 });
                 video.srcObject = stream;
                 video.style.display = 'block';
-
-                // Get the track and create ImageCapture object
-                const [track] = stream.getVideoTracks();
-                imageCapture = new ImageCapture(track);
             } catch (error) {
                 console.error("Error accessing the camera", error);
             }
         }
 
-        async function captureImage() {
-            try {
-                const frame = await imageCapture.grabFrame();
-                context.drawImage(frame, 0, 0, canvas.width, canvas.height);
-                video.style.display = 'none';
-            } catch (error) {
-                console.error("Error capturing image", error);
-            }
+        function captureImage() {
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            video.style.display = 'none';
         }
 
         canvas.addEventListener('click', function(event) {
