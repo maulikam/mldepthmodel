@@ -3,7 +3,7 @@ import numpy as np
 from transformers import pipeline
 from PIL import Image
 import matplotlib.pyplot as plt
-from flask import Flask, request, jsonify, send_file, render_template
+from flask import Flask, request, jsonify, send_file, render_template, url_for
 from flask_cors import CORS
 import io
 from huggingface_hub import login
@@ -78,8 +78,13 @@ def upload_file():
         logging.debug(f"Depth values at reference points: {depth1}, {depth2}")
 
         # Calculate the depth difference in pixel values
-        depth_diff = abs(depth1 - depth2)
-        logging.debug(f"Depth difference: {depth_diff}")
+        if depth1 == depth2:
+            # Use the maximum depth value in the array for scaling
+            depth_diff = np.max(depth_array) - np.min(depth_array)
+            logging.debug(f"Using maximum depth difference for scaling: {depth_diff}")
+        else:
+            depth_diff = abs(depth1 - depth2)
+            logging.debug(f"Depth difference: {depth_diff}")
 
         # Calculate the scaling factor (meters per depth unit)
         scaling_factor = known_distance_meters / depth_diff
@@ -89,13 +94,30 @@ def upload_file():
         real_world_depth = depth_array * scaling_factor
         logging.debug(f"Real-world depth array: {real_world_depth}")
 
+        # Calculate the room size (assuming reference points are on the same plane)
+        room_width_pixels = abs(ref_point2[0] - ref_point1[0])
+        room_width_meters = room_width_pixels * scaling_factor
+        room_height_pixels = abs(ref_point2[1] - ref_point1[1])
+        room_height_meters = room_height_pixels * scaling_factor
+
+        logging.debug(f"Room width (meters): {room_width_meters}")
+        logging.debug(f"Room height (meters): {room_height_meters}")
+
         # Save the real-world depth map as an image file
         real_world_depth_image = Image.fromarray((real_world_depth * 255).astype(np.uint8))
         output = io.BytesIO()
         real_world_depth_image.save(output, format='PNG')
         output.seek(0)
 
-        return send_file(output, mimetype='image/png')
+        # Save the image to a file
+        image_filename = 'real_world_depth_map.png'
+        real_world_depth_image.save(os.path.join('static', image_filename))
+
+        return jsonify({
+            'depth_map_url': url_for('static', filename=image_filename),
+            'room_width_meters': room_width_meters,
+            'room_height_meters': room_height_meters
+        })
     except Exception as e:
         logging.error(f"Error processing image: {e}")
         return jsonify({'error': 'Error processing image'}), 500
