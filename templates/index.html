@@ -15,7 +15,7 @@
     <input type="number" id="knownDistance" placeholder="Known Distance (meters)">
     <button onclick="startCamera()">Start Camera</button>
     <button onclick="captureImage()">Capture Image</button>
-    <video id="video" width="640" height="480" autoplay playsinline style="display: none;"></video>
+    <video id="video" width="640" height="480" autoplay playsinline></video>
     <canvas id="imageCanvas" width="640" height="480"></canvas>
     <button onclick="uploadImage()">Upload and Process</button>
     <div id="result"></div>
@@ -72,10 +72,14 @@
                     body: formData,
                 });
 
-                const resultBlob = await response.blob();
-                const url = URL.createObjectURL(resultBlob);
+                const result = await response.json();
+                const depthMapUrl = result.depth_map_url;
 
-                document.getElementById('result').innerHTML = `<img src="${url}" alt="Depth Map">`;
+                document.getElementById('result').innerHTML = `
+                    <img src="${depthMapUrl}" alt="Depth Map">
+                    <p>Room width: ${result.room_width_meters} meters</p>
+                    <p>Room height: ${result.room_height_meters} meters</p>
+                `;
             }, 'image/png');
         }
     </script>
